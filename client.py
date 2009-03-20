@@ -1,10 +1,12 @@
 #!/usr/bin/env python
-
 import xmlrpclib
 import socket
 
+directorIP = '192.168.122.42'
+directorPort = '12219'
+
 # Connect to server
-s = xmlrpclib.ServerProxy('http://localhost:12219')
+s = xmlrpclib.ServerProxy("http://" + directorIP + ":" + directorPort)
 
 # Implement timeout (else RPC request will hang indefinately)
 #socket.setdefaulttimeout(60)
@@ -16,8 +18,14 @@ def readLine(filename):
 
 LoadAvg = readLine('/proc/loadavg')
 
-myIP = socket.gethostbyname(socket.gethostname())
+# Fugly way to grab our ip. A better way would be to take our initial
+# connect and get it from there. I don't know how (yet).
+from socket import socket, SOCK_DGRAM, AF_INET
+ugly = socket(AF_INET, SOCK_DGRAM)
+ugly.connect((directorIP, int(directorPort)))
+myIP = ugly.getsockname()[0]
+
 myLoad = s.pushLoad(LoadAvg,myIP)
 
-print "Pushed current load: " + str(myLoad)
+print "DEBUG: pushed current 1m load avg of " + str(myLoad)
 
