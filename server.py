@@ -1,4 +1,16 @@
 #!/usr/bin/env python
+"""
+
+ LVS Change weight on Load (lvs-cwol)
+
+ By Léon Keijser - keijser@stone-it.com
+
+
+ This is the server-side app
+
+"""
+
+## SETTINGS ##
 
 # Bind to IP/port
 serverIP = '192.168.122.42'

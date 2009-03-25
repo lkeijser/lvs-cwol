@@ -1,14 +1,26 @@
 #!/usr/bin/env python
+"""
+
+ LVS Change weight on Load (lvs-cwol)
+
+ By Léon Keijser - keijser@stone-it.com
+
+
+ This is the client-side app
+
+"""
+
 import xmlrpclib
 import socket
 
+# IP:port settings of director
 directorIP = '192.168.122.42'
 directorPort = '12219'
 
 # Connect to server
 s = xmlrpclib.ServerProxy("http://" + directorIP + ":" + directorPort)
 
-# Implement timeout (else RPC request will hang indefinately)
+# FIXME: Implement timeout (else RPC request will hang indefinately)
 #socket.setdefaulttimeout(60)
 
 def readLine(filename):
