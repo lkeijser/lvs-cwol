@@ -1,0 +1,9 @@
+LVS Change weight on Load (lvs-cwol)
+
+Author: Léon Keijser - keijser@stone-it.com
+
+
+Set of client/server python scripts to have a realserver
+report its Load to the director and have it change its
+weight accordingly.
+

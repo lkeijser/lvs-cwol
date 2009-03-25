@@ -1,15 +1,14 @@
 #!/usr/bin/env python
 
-#--------- PREFERENCES ---------#
 # Bind to IP/port
 serverIP = '192.168.122.42'
 serverPort = 12219
 # Set thresholds
-LoadAvg_crit_threshold = '0.80'
-LoadAvg_warn_threshold = '0.50'
-# 
-#------- END PREFERENCES -------#
-
+LoadAvg_crit_threshold = '1.00'
+LoadAvg_warn_threshold = '0.60'
+# Set weight-modifications (doesn't work yet)
+changeWeightWarn = 4	# 100%/4 = -25% of original 
+changeWeightCrit = 2	# 100%/2 = -50% of original
 
 from SimpleXMLRPCServer import SimpleXMLRPCServer
 from SimpleXMLRPCServer import SimpleXMLRPCRequestHandler
@@ -19,6 +18,7 @@ import string,socket
 def hex2dec(s):
     return int(s, 16)
 
+# simple routine to read from a file, line by line
 def readLines(filename):
     f = open(filename, "r")
     lines = f.readlines()
@@ -26,10 +26,18 @@ def readLines(filename):
 
 # Get realserver IP-addresses from /proc/net/ip_vs and build an ACL
 # This ACL should be built with the following format:
-# VIP:RIP:WEIGHT:WEIGHTCURRENT (initially, WEIGHTCURRENT is the same as WEIGHT)
-# Right now it's built as RIP:WEIGHT:WEIGHTCURRENT
+# { RIP = [VIP, WEIGHT, WEIGHTCURRENT, VPORT, RPORT] }
+print "Building ACL from LVS table ..."
 accessList={}
 for line in readLines('/proc/net/ip_vs'):
+	if line.split()[0] == 'TCP' or line.split()[0] == 'UDP':
+		vIP = line.split()[1].split(':')[0]
+		vIPfst = vIP[0:2]
+		vIPscd = vIP[2:4]
+		vIPtrd = vIP[4:6]
+		vIPfth = vIP[6:8]
+		vIPport = hex2dec(line.split()[1].split(':')[1])
+		virtualIP = str(hex2dec(vIPfst)) + "." + str(hex2dec(vIPscd)) + "." + str(hex2dec(vIPtrd)) + "." + str(hex2dec(vIPfth))
 	if line.split()[0] == '->':
 		if len(str(line.split()[1])) == 13:
 			rsIP = line.split()[1].split(':')[0]
@@ -37,24 +45,33 @@ for line in readLines('/proc/net/ip_vs'):
 			rsIPscd = rsIP[2:4]	# second octet
 			rsIPtrd = rsIP[4:6]	# third octet
 			rsIPfth = rsIP[6:8]	# fourth octet
-			# compile IP
+			rsIPport = hex2dec(line.split()[1].split(':')[1])
+			# compile RIP
 			realserverIP = str(hex2dec(rsIPfst)) + "." + str(hex2dec(rsIPscd)) + "." + str(hex2dec(rsIPtrd)) + "." + str(hex2dec(rsIPfth))
-			# compile weight
-			realserverWeight = [line.split()[3]]
-			realserverWeight.append(line.split()[3])
+			# build realserver list
+			realserverList = [virtualIP]
+			# add original weight to list
+			realserverList.append(line.split()[3])
+			# add current weight to list (same as original weight)
+			realserverList.append(line.split()[3])
+			# add virtual port to list
+			realserverList.append(vIPport)
+			# add real port to list
+			realserverList.append(rsIPport)
 			# add keypair (ip:weight)  to ACL
-			accessList[realserverIP] = realserverWeight
-			print "Storing IP:weightOrig:weightChange as  " + str(realserverIP) + ":" + str(accessList[realserverIP][0]) + ":" + str(accessList[realserverIP][1])
+			accessList[realserverIP] = realserverList
+			print "Adding " + str(realserverIP) + ":" + str(virtualIP) + ":" + str(accessList[realserverIP][0]) + ":" + str(accessList[realserverIP][1]) + ":" + str(vIPport) + ":" + str(rsIPport) + " to ACL as RIP:VIP:weightOrig:weightCurrent:vPort:rPort"
 
 # Test function pushLoad
 def pushLoad_function(LoadAvg, clientIP):
+    import os
     LoadAvg1 = LoadAvg.split()[0]
     # print "DEBUG: Client reports IP:  %s " % clientIP
     # Determine original weight
-    rsWeightOriginal = accessList[clientIP][0]
+    rsWeightOriginal = accessList[clientIP][1]
     # print "DEBUG: Original weight of rs: %s " % rsWeightOriginal
     # Determine changed weight
-    rsWeightCurrent = accessList[clientIP][1]
+    rsWeightCurrent = accessList[clientIP][2]
     # print "DEBUG: Current weight of rs: %s " % rsWeightCurrent
     # Determine if CRITICAL threshold is reached
     if float(LoadAvg1) >= float(LoadAvg_crit_threshold):
@@ -62,10 +79,12 @@ def pushLoad_function(LoadAvg, clientIP):
 	rsWeightHalf = int(rsWeightOriginal) - int(rsWeightOriginal)/2
 	# Only change weight if not already changed
 	if not int(rsWeightCurrent) == int(rsWeightHalf):
-    	    print "Changing realserver's weight to 50% of original"
-	    print "ipvsadm -e -t vip:port -r ip:port -w " + str(rsWeightHalf)
+    	print "Changing realserver's weight to 50% of original"
+	    print "Running /sbin/ipvsadm -e -t " + str(accessList[clientIP][0]) + ":" + str(accessList[clientIP][3]) + " -r " + str(clientIP) + ":" + str(accessList[clientIP][4]) + " -w " + str(rsWeightHalf)
+	    cmd = "/sbin/ipvsadm -e -t " + str(accessList[clientIP][0]) + ":" + str(accessList[clientIP][3]) + " -r " + str(clientIP) + ":" + str(accessList[clientIP][4]) + " -w " + str(rsWeightHalf)
+	    os.system(cmd)
 	    # Setting new weight in list
-	    accessList[clientIP][1] = rsWeightHalf
+	    accessList[clientIP][2] = rsWeightHalf
 	else:
 	    print "Weight already changed. Doing nothing."
     # Determine if WARNING threshold is reached
@@ -75,9 +94,11 @@ def pushLoad_function(LoadAvg, clientIP):
 	# Only change weight if not already changed
         if not int(rsWeightCurrent) == int(rsWeightQuart):
             print "Changing realserver's weight to 75% of original"
-            print "ipvsadm -e -t vip:port -r ip:port -w " + str(rsWeightQuart)
+            print "Running /sbin/ipvsadm -e -t " + str(accessList[clientIP][0]) + ":" + str(accessList[clientIP][3]) + " -r " + str(clientIP) + ":" + str(accessList[clientIP][4]) + " -w " + str(rsWeightQuart)
+            cmd = "/sbin/ipvsadm -e -t " + str(accessList[clientIP][0]) + ":" + str(accessList[clientIP][3]) + " -r " + str(clientIP) + ":" + str(accessList[clientIP][4]) + " -w " + str(rsWeightQuart)
+	    os.system(cmd)
             # Setting new weight in list
-            accessList[clientIP][1] = rsWeightQuart
+            accessList[clientIP][2] = rsWeightQuart
         else:
             print "Weight already changed. Doing nothing."
 
@@ -86,11 +107,13 @@ def pushLoad_function(LoadAvg, clientIP):
 	# Setting weight back to original value if not already set
 	if not int(rsWeightCurrent) == int(rsWeightOriginal):
 	    print "Setting weight back to original value of " + str(rsWeightOriginal)
-	    print "ipvsadm -e -t vip:port -r ip:port -w " + str(rsWeightOriginal)
-	    accessList[clientIP][1] = rsWeightOriginal
+	    print "Running /sbin/ipvsadm -e -t " + str(accessList[clientIP][0]) + ":" + str(accessList[clientIP][3]) + " -r " + str(clientIP) + ":" + str(accessList[clientIP][4]) + " -w " + str(rsWeightOriginal)
+	    cmd = "/sbin/ipvsadm -e -t " + str(accessList[clientIP][0]) + ":" + str(accessList[clientIP][3]) + " -r " + str(clientIP) + ":" + str(accessList[clientIP][4]) + " -w " + str(rsWeightOriginal)
+	    os.system(cmd)
+	    accessList[clientIP][2] = rsWeightOriginal
     return LoadAvg1
 
-# Define server
+# subclass SimpleXMLRPCServer to grab client_address
 class Server(SimpleXMLRPCServer):
     def __init__(self,*args):
         SimpleXMLRPCServer.__init__(self,(args[0],args[1]))
@@ -99,15 +122,16 @@ class Server(SimpleXMLRPCServer):
         SimpleXMLRPCServer.server_bind(self)
     def verify_request(self,request, client_address):
         print "\n"
-	cip = client_address[0]
-	if accessList.has_key(cip):
-       	    print "Client (" + cip + ") in LVS table."
+	clientIP = client_address[0]
+	if accessList.has_key(clientIP):
+       	    print "Client (" + clientIP + ") in LVS table."
             return 1
 	else:
-	    print "Client (" + cip + ") NOT in LVS table."
+	    print "Client (" + clientIP + ") NOT in LVS table."
 	return 0
 
 if __name__ == "__main__":
+    print "Starting up ..."
     server = Server(serverIP,serverPort)
     server.register_function(pushLoad_function, 'pushLoad')
     server.logRequests = 0
