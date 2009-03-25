@@ -3,7 +3,47 @@ LVS Change weight on Load (lvs-cwol)
 Author: Léon Keijser - keijser@stone-it.com
 
 
+Description:
+============
 Set of client/server python scripts to have a realserver
 report its Load to the director and have it change its
 weight accordingly.
+
+Usage:
+======
+You simply set a warning and a critical threshold in the
+server.py and run it on the director. Run the client.py 
+component on a realserver and it reports its load back to
+the director. 
+
+Then the director checks if the realserver occurs in its
+LVS table, checks if it reaches a threshold and changes
+the weight of the realserver if it does.
+
+For example:
+
+In the LVS table is an entry:
+
+Prot LocalAddress:Port Scheduler Flags
+  -> RemoteAddress:Port           Forward Weight ActiveConn InActConn
+TCP  192.168.1.100:80 wlc
+  -> 192.168.1.11:80              Route   100    0          0
+
+The server.py stores the entry like this:
+
+{ RIP = [VIP, WEIGHT, WEIGHTCURRENT, VPORT, RPORT] }
+
+Now when server.py starts, it stores the entry like this:
+
+192.168.1.11 = 192.168.1.100, 100, 100, 80, 80
+
+When client.py (ran on the realserver) connects, server.py
+checks if the Load reported by the realserver doesn't exceed
+the 'critical' threshold yet. If it doesn't, it checks if the
+'warning' threshold is reached. If not, nothing happens. If
+one of the thresholds is reached, the server.py changes the
+weight of the realserver (-25% for warning, -50% for critical).
+As soon as the load goes back to normal, the weight is set
+back to the original value.
+
 
