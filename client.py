@@ -3,7 +3,7 @@
 
  LVS Change weight on Load (lvs-cwol)
 
- By Leon Keijser - keijser@stone-it.com
+ By Leon Keijser - leon@gotlinux.nl
 
 
  This is the client-side app
