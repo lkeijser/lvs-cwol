@@ -97,7 +97,7 @@ def pushLoad_function(LoadAvg, clientIP):
     #print "DEBUG: Current weight of rs: %s " % rsWeightCurrent
     # Determine if CRITICAL threshold is reached
     if float(LoadAvg1) >= float(LoadAvg_crit_threshold):
-    	print "CRITICAL: Load Average (1min) threshold (" + str(LoadAvg_crit_threshold) + ") reached: " + LoadAvg1
+        print "CRITICAL: Load Average (1min) threshold (%s) reached: %s" % (str(LoadAvg_crit_threshold),LoadAvg1)
         rsWeightHalf = int(rsWeightOriginal) - int(rsWeightOriginal)/2
         # Only change weight if not already changed
         if not int(rsWeightCurrent) == int(rsWeightHalf):
@@ -111,7 +111,7 @@ def pushLoad_function(LoadAvg, clientIP):
             print "Weight already changed. Doing nothing."
     # Determine if WARNING threshold is reached
     elif float(LoadAvg1) >= float(LoadAvg_warn_threshold):
-    	print "WARNING: Load Average (1min) threshold (" + str(LoadAvg_warn_threshold) + ") reached: " + LoadAvg1
+        print "WARNING: Load Average (1min) threshold (%s) reached: %s" % (str(LoadAvg_warn_threshold),LoadAvg1)
 	rsWeightQuart = int(rsWeightOriginal) - int(rsWeightOriginal)/4
 	# Only change weight if not already changed
         if not int(rsWeightCurrent) == int(rsWeightQuart):
@@ -125,10 +125,10 @@ def pushLoad_function(LoadAvg, clientIP):
             print "Weight already changed. Doing nothing."
 
     else:
-    	print "OK: Load Average (1min) threshold normal: " + LoadAvg1
+    	print "OK: Load Average (1min) threshold normal: %s" % LoadAvg1
 	# Setting weight back to original value if not already set
 	if not int(rsWeightCurrent) == int(rsWeightOriginal):
-	    print "Setting weight back to original value of " + str(rsWeightOriginal)
+	    print "Setting weight back to original value of %s" % str(rsWeightOriginal)
 	    print "Running /sbin/ipvsadm -e -t " + str(accessList[clientIP][0]) + ":" + str(accessList[clientIP][3]) + " -r " + str(clientIP) + ":" + str(accessList[clientIP][4]) + " -w " + str(rsWeightOriginal)
 	    cmd = "/sbin/ipvsadm -e -t " + str(accessList[clientIP][0]) + ":" + str(accessList[clientIP][3]) + " -r " + str(clientIP) + ":" + str(accessList[clientIP][4]) + " -w " + str(rsWeightOriginal)
 	    os.system(cmd)
@@ -146,10 +146,10 @@ class Server(SimpleXMLRPCServer):
         print "\n"
 	clientIP = client_address[0]
 	if accessList.has_key(clientIP):
-       	    print "Client (" + clientIP + ") in LVS table."
+       	    print "Client (%s) in LVS table." % clientIP
             return 1
 	else:
-	    print "Client (" + clientIP + ") NOT in LVS table."
+	    print "Client (%s) NOT in LVS table." % clientIP
 	return 0
 
 if __name__ == "__main__":
