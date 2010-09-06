@@ -3,7 +3,7 @@
 
  LVS Change weight on Load (lvs-cwol)
 
- By Léon Keijser - keijser@stone-it.com
+ By Leon Keijser - keijser@stone-it.com
 
 
  This is the client-side app
@@ -14,7 +14,7 @@ import xmlrpclib
 import socket
 
 # IP:port settings of director
-directorIP = '192.168.122.42'
+directorIP = '172.17.0.100'
 directorPort = '12219'
 
 # Connect to server

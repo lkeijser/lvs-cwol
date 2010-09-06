@@ -3,7 +3,7 @@
 
  LVS Change weight on Load (lvs-cwol)
 
- By Léon Keijser - keijser@stone-it.com
+ By L.S. Keijser - keijser@stone-it.com
 
 
  This is the server-side app
@@ -13,7 +13,7 @@
 ## SETTINGS ##
 
 # Bind to IP/port
-serverIP = '192.168.122.42'
+serverIP = '172.17.0.100'
 serverPort = 12219
 # Set thresholds
 LoadAvg_crit_threshold = '1.00'
@@ -78,27 +78,27 @@ for line in readLines('/proc/net/ip_vs'):
 def pushLoad_function(LoadAvg, clientIP):
     import os
     LoadAvg1 = LoadAvg.split()[0]
-    # print "DEBUG: Client reports IP:  %s " % clientIP
+    #print "DEBUG: Client reports IP:  %s " % clientIP
     # Determine original weight
     rsWeightOriginal = accessList[clientIP][1]
-    # print "DEBUG: Original weight of rs: %s " % rsWeightOriginal
+    #print "DEBUG: Original weight of rs: %s " % rsWeightOriginal
     # Determine changed weight
     rsWeightCurrent = accessList[clientIP][2]
-    # print "DEBUG: Current weight of rs: %s " % rsWeightCurrent
+    #print "DEBUG: Current weight of rs: %s " % rsWeightCurrent
     # Determine if CRITICAL threshold is reached
     if float(LoadAvg1) >= float(LoadAvg_crit_threshold):
     	print "CRITICAL: Load Average (1min) threshold (" + str(LoadAvg_crit_threshold) + ") reached: " + LoadAvg1
-	rsWeightHalf = int(rsWeightOriginal) - int(rsWeightOriginal)/2
-	# Only change weight if not already changed
-	if not int(rsWeightCurrent) == int(rsWeightHalf):
-    	print "Changing realserver's weight to 50% of original"
-	    print "Running /sbin/ipvsadm -e -t " + str(accessList[clientIP][0]) + ":" + str(accessList[clientIP][3]) + " -r " + str(clientIP) + ":" + str(accessList[clientIP][4]) + " -w " + str(rsWeightHalf)
-	    cmd = "/sbin/ipvsadm -e -t " + str(accessList[clientIP][0]) + ":" + str(accessList[clientIP][3]) + " -r " + str(clientIP) + ":" + str(accessList[clientIP][4]) + " -w " + str(rsWeightHalf)
-	    os.system(cmd)
-	    # Setting new weight in list
-	    accessList[clientIP][2] = rsWeightHalf
-	else:
-	    print "Weight already changed. Doing nothing."
+        rsWeightHalf = int(rsWeightOriginal) - int(rsWeightOriginal)/2
+        # Only change weight if not already changed
+        if not int(rsWeightCurrent) == int(rsWeightHalf):
+            print "Changing realserver's weight to 50% of original"
+            print "Running /sbin/ipvsadm -e -t " + str(accessList[clientIP][0]) + ":" + str(accessList[clientIP][3]) + " -r " + str(clientIP) + ":" + str(accessList[clientIP][4]) + " -w " + str(rsWeightHalf)
+            cmd = "/sbin/ipvsadm -e -t " + str(accessList[clientIP][0]) + ":" + str(accessList[clientIP][3]) + " -r " + str(clientIP) + ":" + str(accessList[clientIP][4]) + " -w " + str(rsWeightHalf)
+            os.system(cmd)
+            # Setting new weight in list
+            accessList[clientIP][2] = rsWeightHalf
+        else:
+            print "Weight already changed. Doing nothing."
     # Determine if WARNING threshold is reached
     elif float(LoadAvg1) >= float(LoadAvg_warn_threshold):
     	print "WARNING: Load Average (1min) threshold (" + str(LoadAvg_warn_threshold) + ") reached: " + LoadAvg1
